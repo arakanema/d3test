@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <title>D3 test</title>
+</head>
+<body>
+
+<select name="select" onchange="selectYear(this);">
+    <option value="2013">2013年</option>
+    <option value="2014">2014年</option>
+    <option value="2015">2015年</option>
+    <option value="2016">2016年</option>
+    <option value="2017">2017年</option>
+    <option value="2018">2018年</option>
+</select>
+
+<select name="select" onchange="selectPref(this);">
+    <option value="福岡県">福岡県</option>
+    <option value="佐賀県">佐賀県</option>
+    <option value="長崎県">長崎県</option>
+    <option value="熊本県">熊本県</option>
+    <option value="大分県">大分県</option>
+    <option value="宮崎県">宮崎県</option>
+</select>
+
+<div id="chart-area"></div>
+<script src="./d3.min.js"></script>
+
+
+<script type="text/javascript">
+  var margin = {left: 100, right: 20, top: 20, bottom: 120};
+  var width = 800 - margin.left - margin.right;
+  var height = 600 - margin.top - margin.bottom;
+  var transition = d3.transition().duration(1500);
+  var prefs = [
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県',
+    '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県', '鳥取県', '島根県',
+    '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+  ];
+
+  var g = d3.select('#chart-area')
+      .append('svg')
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+      .append('g')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+  // Scale
+  var x = d3.scaleBand()
+      .range([0, width])
+      .padding(0.2);
+  var y = d3.scaleLinear()
+      .range([height, 0]);
+
+  // Axis Group
+  var xAxisGroup = g.append('g')
+      .attr('class', 'x x-axis')
+      .attr('transform', 'translate(0,' + height + ')');
+  var yAxisGroup = g.append('g')
+      .attr('class', 'y y-axis');
+
+  // Label
+  var yLabel = g.append('text')
+      .attr('y', -70)
+      .attr('x', -(height / 2))
+      .attr('font-size', '20px')
+      .attr('text-anchor', 'middle')
+      .attr('transform', 'rotate(-90)')
+      .text('宿泊者数（人）');
+
+  var currentYear = '2016';
+  var currentPref = '東京都';
+
+  var xLabel = g.append('text')
+      .attr('y', height + 50)
+      .attr('x', width / 2)
+      .attr('font-size', '20px')
+      .attr('text-anchor', 'middle')
+      .text(currentYear + '年 : ' + currentPref + 'からの宿泊');
+
+  d3.json('./number_of_prefecture_by_month.json', function(data) {
+    update(data);
+  });
+
+  function update(data) {
+    var currenYearData = data.filter(function(d) {
+      if (d.date.split('-')[0] === currentYear) {
+        return d;
+      }
+    });
+    var currentPrefData = [];
+    currenYearData.forEach(function(d) {
+      currentPrefData.push({date: d.date, value: d[currentPref]});
+    });
+    // console.log(currentPrefData);
+
+    // Scale
+    x.domain(currentPrefData.map(function(d) {
+      return d.date;
+    }));
+    y.domain([
+      0, d3.max(currentPrefData, function(d) {
+        return d.value;
+      })]);
+
+    // Axis
+    var xAxisCall = d3.axisBottom(x)
+        .tickFormat(function(d) {
+          return Number(d.split('-')[1]) + '月';
+        });
+    xAxisGroup.call(xAxisCall)
+        .transition()
+        .selectAll('text')
+        .attr('transform', 'rotate(-40)')
+        .attr('text-anchor', 'end');
+
+    var yAxisCall = d3.axisLeft(y)
+        .tickFormat(function(d) {
+          return d + '人';
+        });
+    yAxisGroup.call(yAxisCall)
+        .transition();
+
+    // Update xLabel
+    xLabel.selectAll('text')
+        .exit()
+        .remove();
+    xLabel.text = currentPref;
+
+    var rectangles = g.selectAll('rect')
+        .data(currentPrefData, function(d) {
+          return d.value;
+        });
+    rectangles.exit()
+        .transition()
+        .remove();
+    rectangles
+        .attr('y', function(d) {
+          return y(d.value);
+        })
+        .attr('x', function(d) {
+          return x(d.date);
+        })
+        .attr('width', x.bandwidth)
+        .attr('height', function(d) {
+          return height - y(d.value);
+        })
+        .attr('fill', 'green');
+    rectangles.enter()
+        .append('rect')
+        .attr('y', function(d) {
+          return y(d.value);
+        })
+        .attr('x', function(d) {
+          return x(d.date);
+        })
+        .attr('width', x.bandwidth)
+        .attr('height', function(d) {
+          return height - y(d.value);
+        })
+        .transition()
+        .attr('fill', 'green');
+
+  }
+</script>
+
+<script type="text/javascript">
+  function selectYear(event) {
+    idx = event.selectedIndex;
+    year = event.options[idx].value;
+    currentYear = year;
+    d3.json('./number_of_prefecture_by_month.json', function(data) {
+      update(data);
+    });
+
+  }
+
+  function selectPref(event) {
+    idx = event.selectedIndex;
+    pref = event.options[idx].value;
+    currentPref = pref;
+    d3.json('./number_of_prefecture_by_month.json', function(data) {
+      update(data);
+    });
+
+  }
+</script>
+
+</body>
+</html>
